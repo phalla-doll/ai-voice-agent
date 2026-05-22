@@ -120,11 +120,12 @@ press ENTER to start → record 5s → STT → print text → fixed TTS reply �
 
 **Goal:** Hold a key to record, release to send.
 
-- [ ] Evaluate `iohook` vs. small Swift helper for global Option+Space
-- [ ] `src/hotkeys/pushToTalk.ts` — emits `start` / `stop` events
-- [ ] Wire to recorder start/stop
-- [ ] Show a small console indicator while recording
-- [ ] Handle accidental zero-length recordings
+- [x] ~~Evaluate `iohook` vs. Swift helper for global hotkey~~ — deferred. Both need accessibility permissions; too heavy for MVP.
+- [x] `src/cli/repl.ts` — **terminal REPL** with SPACE-to-toggle recording, Q to quit (works without permissions or native deps)
+- [x] Wire to recorder start/stop (via `startRecording()`)
+- [x] Show a console indicator while recording / thinking
+- [x] Handle accidental zero-length recordings (empty transcription is skipped)
+- [ ] **Future:** true global Option+Space via Swift helper app (Phase 12 stretch)
 
 **Done when:** Holding Option+Space anywhere on macOS records, release transcribes.
 
@@ -207,7 +208,7 @@ Fill in the "Measured" column as you progress.
 - [x] Exact Voicebox API response shape — documented in `docs/voicebox-api.md`
 - [x] Does OpenCode expose a stable streaming API? — **yes**: `opencode run --format json` streams NDJSON events (`step_start`, `text`, `step_finish`). Parse stdout line-by-line.
 - [x] Best Node mic library on Apple Silicon — using `sox`/`afplay` via spawn, no Node mic library needed
-- [ ] Global hotkey: stick with `iohook`, or build the Swift helper?
+- [x] Global hotkey — **deferred**; using terminal REPL with SPACE toggle for now. Swift helper is the path when needed.
 
 ---
 
@@ -225,3 +226,4 @@ Record non-obvious choices here as you make them. Format:
 - 2026-05-22 — **Stick with Kokoro for MVP**, defer Qwen 1.7B. Qwen load via API hung indefinitely (queued generation never started). MPS is active in the Voicebox UI but the API loader is wedged. Kokoro is ~350ms TTS and "good enough" per README guidance for Apple Silicon.
 - 2026-05-22 — **Skip native Node audio libs**; spawn `sox` for recording and `afplay` for playback. Avoids `node-record-lpcm16` / `speaker` native-build flakiness. macOS-only — revisit if we ever need cross-platform.
 - 2026-05-22 — OpenCode integration via **CLI subprocess** (`opencode run --format json`), not a plugin or HTTP server. Output is NDJSON: `step_start` → 1+ `text` parts → `step_finish` with tokens/cost. Loop uses `-c` so conversation has memory across turns.
+- 2026-05-22 — Push-to-talk = **terminal REPL with SPACE toggle**, not a global hotkey. Avoids accessibility permissions and native modules. True global Option+Space deferred to a future Swift helper.

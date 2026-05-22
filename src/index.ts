@@ -6,6 +6,7 @@ import { VOICEBOX_URL } from "./voicebox/client.js";
 import { recordFor } from "./audio/recorder.js";
 import { playBuffer, playFile } from "./audio/playback.js";
 import { ask } from "./opencode/ask.js";
+import { runRepl } from "./cli/repl.js";
 
 async function loop() {
   console.log("→ recording 5s, speak now…");
@@ -48,12 +49,18 @@ async function main() {
     console.log("voice agent ready");
     console.log(`voicebox: ${VOICEBOX_URL}`);
     console.log("commands:");
-    console.log("  npm run dev -- loop                  → full record→stt→opencode→tts→play");
+    console.log("  npm run dev -- chat                  → interactive REPL: SPACE = talk, Q = quit");
+    console.log("  npm run dev -- loop                  → one-shot record→stt→opencode→tts→play");
     console.log("  npm run dev -- ask <text>            → send text to opencode, print reply");
     console.log("  npm run dev -- record <sec> <out>    → record to wav");
     console.log("  npm run dev -- play <wav>            → play a wav");
     console.log("  npm run dev -- speak <text>          → tmp/out.wav");
     console.log("  npm run dev -- transcribe <wavPath>  → prints text");
+    return;
+  }
+
+  if (cmd === "chat") {
+    await runRepl();
     return;
   }
 
