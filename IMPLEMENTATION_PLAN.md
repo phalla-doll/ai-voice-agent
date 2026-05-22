@@ -135,11 +135,12 @@ press ENTER to start → record 5s → STT → print text → fixed TTS reply �
 
 **Goal:** Speak while OpenCode is still generating.
 
-- [ ] Switch OpenCode integration to streamed tokens (stdout/SSE/WS)
-- [ ] `src/formatter/chunker.ts` — emit chunks on sentence end / newline / pause / code-fence
-- [ ] `src/formatter/markdown.ts` — strip markdown, normalize punctuation for speech
-- [ ] Skip code fences, tables, stack traces, terminal logs (see README Step 10)
-- [ ] Unit tests for chunker with sample streams
+- [x] Switch OpenCode integration to streamed tokens → `src/opencode/stream.ts`
+- [x] `src/formatter/chunker.ts` — emits chunks on sentence end / paragraph break
+- [x] `src/formatter/markdown.ts` — strips emphasis, links, headings, list bullets, inline code
+- [x] Skip code fences (drops content between ``` ... ```)
+- [ ] Skip tables / stack traces / terminal logs (future polish)
+- [x] Unit tests for chunker with sample streams (`src/formatter/chunker.test.ts`)
 
 **Done when:** First spoken token < 1.5s after OpenCode begins replying.
 
@@ -149,10 +150,10 @@ press ENTER to start → record 5s → STT → print text → fixed TTS reply �
 
 **Goal:** FIFO TTS playback, no overlapping audio.
 
-- [ ] `src/queue/speechQueue.ts` — enqueue text, serialize TTS + playback
-- [ ] Debounce tiny chunks (< N chars)
-- [ ] Expose `cancel()` to clear queue + stop current playback
-- [ ] Logs: chunk in, audio out, queue depth
+- [x] `src/queue/speechQueue.ts` — enqueue text; TTS runs in parallel, playback strictly FIFO
+- [ ] Debounce tiny chunks (< N chars) — TBD if it becomes a problem
+- [x] Expose `cancel()` to stop future playback (current playback stops at next chunk boundary)
+- [ ] Logs: chunk in, audio out, queue depth (basic timings logged in REPL for now)
 
 **Done when:** Rapidly enqueuing 10 chunks plays them in order, no overlap.
 
@@ -227,3 +228,4 @@ Record non-obvious choices here as you make them. Format:
 - 2026-05-22 — **Skip native Node audio libs**; spawn `sox` for recording and `afplay` for playback. Avoids `node-record-lpcm16` / `speaker` native-build flakiness. macOS-only — revisit if we ever need cross-platform.
 - 2026-05-22 — OpenCode integration via **CLI subprocess** (`opencode run --format json`), not a plugin or HTTP server. Output is NDJSON: `step_start` → 1+ `text` parts → `step_finish` with tokens/cost. Loop uses `-c` so conversation has memory across turns.
 - 2026-05-22 — Push-to-talk = **terminal REPL with SPACE toggle**, not a global hotkey. Avoids accessibility permissions and native modules. True global Option+Space deferred to a future Swift helper.
+- 2026-05-22 — Streaming TTS uses a **parallel-TTS, FIFO-playback** pipeline: as soon as a chunk is ready, a TTS request fires; audio plays strictly in submit order. Reduces first-spoken-token latency without breaking ordering. OpenCode events sometimes emit cumulative text — the stream layer dedupes by tracking the last-seen prefix.

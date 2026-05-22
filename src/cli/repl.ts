@@ -1,9 +1,9 @@
 import { unlink } from "node:fs/promises";
 import { startRecording } from "../audio/recorder.js";
-import { playBuffer } from "../audio/playback.js";
 import { transcribe } from "../voicebox/stt.js";
-import { speak } from "../voicebox/tts.js";
-import { ask } from "../opencode/ask.js";
+import { streamAsk } from "../opencode/stream.js";
+import { SpeechChunker } from "../formatter/chunker.js";
+import { SpeechQueue } from "../queue/speechQueue.js";
 
 interface Recorder {
   stop: () => void;
@@ -39,17 +39,37 @@ async function runTurn() {
   console.log(`\n  you: ${text}  [stt ${Date.now() - t0}ms]`);
 
   const t1 = Date.now();
-  const { text: reply, tokens, cost } = await ask(text, { continueSession: true });
-  const tokInfo = tokens ? ` ${tokens.total}tok` : "";
-  const costInfo = cost ? ` $${cost.toFixed(4)}` : "";
-  console.log(`  bot: ${reply}  [oc ${Date.now() - t1}ms${tokInfo}${costInfo}]`);
+  const { deltas, done } = streamAsk(text, { continueSession: true });
+  const chunker = new SpeechChunker();
+  const queue = new SpeechQueue();
 
-  if (!reply.trim()) return;
+  let fullReply = "";
+  let firstSpokenAt: number | null = null;
+  process.stdout.write("  bot: ");
 
-  const t2 = Date.now();
-  const wav = await speak(reply);
-  await playBuffer(wav);
-  console.log(`  (tts+play ${Date.now() - t2}ms, total ${Date.now() - t0}ms)\n`);
+  for await (const delta of deltas) {
+    fullReply += delta;
+    process.stdout.write(delta);
+    for (const chunk of chunker.feed(delta)) {
+      if (firstSpokenAt === null) firstSpokenAt = Date.now();
+      queue.enqueue(chunk);
+    }
+  }
+  const tail = chunker.flush();
+  if (tail) {
+    if (firstSpokenAt === null) firstSpokenAt = Date.now();
+    queue.enqueue(tail);
+  }
+  process.stdout.write("\n");
+
+  const stats = await done;
+  const tokInfo = stats.tokens ? ` ${stats.tokens.total}tok` : "";
+  const costInfo = stats.cost ? ` $${stats.cost.toFixed(4)}` : "";
+  const firstSpoken = firstSpokenAt ? ` first-chunk ${firstSpokenAt - t1}ms` : "";
+  console.log(`  [oc ${Date.now() - t1}ms${firstSpoken}${tokInfo}${costInfo}]`);
+
+  await queue.drain();
+  console.log(`  (turn total ${Date.now() - t0}ms)\n`);
 }
 
 export async function runRepl() {
