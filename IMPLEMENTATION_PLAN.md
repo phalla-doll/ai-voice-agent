@@ -105,11 +105,12 @@ press ENTER to start → record 5s → STT → print text → fixed TTS reply �
 
 **Goal:** Send transcribed text to a real OpenCode session and capture replies.
 
-- [ ] Decide integration surface: CLI subprocess vs. plugin vs. HTTP (check OpenCode docs)
-- [ ] `src/opencode/stream.ts` — spawn OpenCode, send prompt, capture stdout
-- [ ] `src/opencode/events.ts` — event emitter: `token`, `done`, `error`
-- [ ] Replace stub from Phase 5 with real OpenCode call (still non-streaming OK)
-- [ ] Handle errors: OpenCode not installed, crashes, timeouts
+- [x] Decide integration surface: **CLI subprocess** (`opencode run --format json`) — simplest, no server needed
+- [x] `src/opencode/ask.ts` — spawn OpenCode, parse NDJSON, collect text parts
+- [ ] `src/opencode/stream.ts` — streaming variant (deferred to Phase 8)
+- [x] Replace stub from Phase 5 with real OpenCode call (still non-streaming)
+- [x] Handle errors: non-zero exit → throws with stderr tail
+- [x] Use `-c` (continue session) in loop so conversation has memory
 
 **Done when:** Voice prompt produces a real OpenCode response, spoken back.
 
@@ -204,7 +205,7 @@ Fill in the "Measured" column as you progress.
 ## Open Questions
 
 - [x] Exact Voicebox API response shape — documented in `docs/voicebox-api.md`
-- [ ] Does OpenCode expose a stable streaming API, or do we parse stdout?
+- [x] Does OpenCode expose a stable streaming API? — **yes**: `opencode run --format json` streams NDJSON events (`step_start`, `text`, `step_finish`). Parse stdout line-by-line.
 - [x] Best Node mic library on Apple Silicon — using `sox`/`afplay` via spawn, no Node mic library needed
 - [ ] Global hotkey: stick with `iohook`, or build the Swift helper?
 
@@ -223,3 +224,4 @@ Record non-obvious choices here as you make them. Format:
 - 2026-05-22 — Use **native `fetch`** for multipart STT uploads, not `undici.request`. The `undici.request` + `FormData`/`Blob` combo hung indefinitely; native `fetch` works. JSON calls still use `undici`.
 - 2026-05-22 — **Stick with Kokoro for MVP**, defer Qwen 1.7B. Qwen load via API hung indefinitely (queued generation never started). MPS is active in the Voicebox UI but the API loader is wedged. Kokoro is ~350ms TTS and "good enough" per README guidance for Apple Silicon.
 - 2026-05-22 — **Skip native Node audio libs**; spawn `sox` for recording and `afplay` for playback. Avoids `node-record-lpcm16` / `speaker` native-build flakiness. macOS-only — revisit if we ever need cross-platform.
+- 2026-05-22 — OpenCode integration via **CLI subprocess** (`opencode run --format json`), not a plugin or HTTP server. Output is NDJSON: `step_start` → 1+ `text` parts → `step_finish` with tokens/cost. Loop uses `-c` so conversation has memory across turns.

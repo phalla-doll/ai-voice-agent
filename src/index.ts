@@ -5,6 +5,7 @@ import { speak } from "./voicebox/tts.js";
 import { VOICEBOX_URL } from "./voicebox/client.js";
 import { recordFor } from "./audio/recorder.js";
 import { playBuffer, playFile } from "./audio/playback.js";
+import { ask } from "./opencode/ask.js";
 
 async function loop() {
   console.log("→ recording 5s, speak now…");
@@ -22,8 +23,13 @@ async function loop() {
     return;
   }
 
-  const reply = `You said: ${text}`;
-  console.log(`  reply: ${reply}`);
+  const t1b = Date.now();
+  const { text: reply, tokens, cost } = await ask(text, { continueSession: true });
+  console.log(`  opencode (${Date.now() - t1b}ms${tokens ? `, ${tokens.total} tok` : ""}${cost ? `, $${cost.toFixed(4)}` : ""}): ${reply}`);
+  if (!reply.trim()) {
+    console.log("  (empty opencode reply, nothing to say)");
+    return;
+  }
 
   const t2 = Date.now();
   const wav = await speak(reply);
@@ -42,7 +48,8 @@ async function main() {
     console.log("voice agent ready");
     console.log(`voicebox: ${VOICEBOX_URL}`);
     console.log("commands:");
-    console.log("  npm run dev -- loop                  → full record→stt→tts→play loop");
+    console.log("  npm run dev -- loop                  → full record→stt→opencode→tts→play");
+    console.log("  npm run dev -- ask <text>            → send text to opencode, print reply");
     console.log("  npm run dev -- record <sec> <out>    → record to wav");
     console.log("  npm run dev -- play <wav>            → play a wav");
     console.log("  npm run dev -- speak <text>          → tmp/out.wav");
@@ -52,6 +59,16 @@ async function main() {
 
   if (cmd === "loop") {
     await loop();
+    return;
+  }
+
+  if (cmd === "ask") {
+    const text = args.join(" ");
+    if (!text) throw new Error("usage: ask <text>");
+    const t0 = Date.now();
+    const r = await ask(text);
+    console.log(`opencode ok (${Date.now() - t0}ms): ${r.text}`);
+    if (r.tokens) console.log(`  tokens: ${JSON.stringify(r.tokens)}  cost: $${r.cost ?? 0}`);
     return;
   }
 
