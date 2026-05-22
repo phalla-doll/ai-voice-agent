@@ -14,15 +14,17 @@ type State = "idle" | "recording" | "thinking";
 
 const WAV_PATH = "tmp/repl.wav";
 
+const SILENCE_AUTO_STOP_MS = 1500;
+
 function printBanner() {
   console.log("\nvoice agent REPL");
-  console.log("  SPACE  start / stop recording");
+  console.log("  SPACE  start recording (auto-stops on silence, or SPACE again to cut early)");
   console.log("  Q      quit\n");
 }
 
 function printStatus(state: State) {
   const label =
-    state === "recording" ? "● REC (press SPACE to stop)" :
+    state === "recording" ? "● REC (auto-stop on silence, SPACE to cut)" :
     state === "thinking"  ? "… thinking" :
                             "▷ press SPACE to talk";
   // \r overwrites the current line
@@ -107,25 +109,41 @@ export async function runRepl() {
 
     if (state === "idle") {
       try { await unlink(WAV_PATH); } catch {}
-      recorder = startRecording({ outPath: WAV_PATH });
+      const rec = startRecording({
+        outPath: WAV_PATH,
+        autoStopSilenceMs: SILENCE_AUTO_STOP_MS,
+      });
+      recorder = rec;
       state = "recording";
       printStatus(state);
+
+      // Run the turn whenever recording ends (silence auto-stop OR manual stop).
+      rec.done
+        .then(async () => {
+          if (recorder !== rec) return; // superseded
+          recorder = null;
+          state = "thinking";
+          printStatus(state);
+          try {
+            await runTurn();
+          } catch (err) {
+            console.error("\n  turn failed:", err);
+          }
+          state = "idle";
+          printStatus(state);
+        })
+        .catch((err) => {
+          console.error("\n  recorder failed:", err);
+          recorder = null;
+          state = "idle";
+          printStatus(state);
+        });
       return;
     }
 
     if (state === "recording" && recorder) {
+      // manual early-stop; the rec.done handler above will run the turn
       recorder.stop();
-      await recorder.done;
-      recorder = null;
-      state = "thinking";
-      printStatus(state);
-      try {
-        await runTurn();
-      } catch (err) {
-        console.error("\n  turn failed:", err);
-      }
-      state = "idle";
-      printStatus(state);
     }
   };
 

@@ -78,6 +78,7 @@ Tick items as they are completed. Each phase is independently runnable.
 - [x] `src/audio/playback.ts` — `playFile()` + `playBuffer()` via `afplay`
 - [x] CLI test: record 2s → save WAV → play it back
 - [ ] Confirm mic device selection works (default vs. specific device)
+- [x] **Auto-stop on silence** — sox `silence` effect; recorder ends after 1.5s trailing silence (or SPACE to cut early)
 
 **Done when:** You can record yourself and hear the playback.
 

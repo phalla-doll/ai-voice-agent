@@ -6,6 +6,10 @@ export interface RecordOptions {
   sampleRate?: number;
   /** Channels, default 1. */
   channels?: number;
+  /** Auto-stop after this much trailing silence. Default: disabled. */
+  autoStopSilenceMs?: number;
+  /** Amplitude threshold below which counts as silence, as a percentage string (e.g. "1%"). Default "1.5%". */
+  silenceThreshold?: string;
 }
 
 /**
@@ -27,6 +31,16 @@ export function startRecording(opts: RecordOptions) {
     "-t", "wav",
     opts.outPath,
   ];
+
+  // Optional: stop sox automatically after trailing silence.
+  // silence above-periods duration threshold stop-periods stop-duration stop-threshold
+  //   above 1 0.1 <thresh>  → start passing audio as soon as ~0.1s of speech is seen
+  //   stop  1 <ms> <thresh> → stop after that long of silence
+  if (opts.autoStopSilenceMs && opts.autoStopSilenceMs > 0) {
+    const thresh = opts.silenceThreshold ?? "1.5%";
+    const silenceSec = (opts.autoStopSilenceMs / 1000).toFixed(2);
+    args.push("silence", "1", "0.1", thresh, "1", silenceSec, thresh);
+  }
 
   const child = spawn("sox", args, { stdio: ["ignore", "ignore", "pipe"] });
 
